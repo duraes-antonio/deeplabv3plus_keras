@@ -30,7 +30,7 @@ import json
 import warnings
 import shutil
 import random
-
+import keras
 import numpy as np
 import cv2 as cv
 from skimage.io import imread, imsave
@@ -42,7 +42,6 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, Conv2D, Dropout
 from tensorflow.keras.layers import Concatenate, Lambda, Activation, AveragePooling2D, SeparableConv2D
-from tensorflow.distribute.MirroredStrategy
 
 from tensorflow.keras import optimizers
 from tensorflow.keras.applications import MobileNetV2, Xception
@@ -54,9 +53,6 @@ from tensorflow.keras import regularizers
 from tensorflow.keras.layers import BatchNormalization
 
 from tensorflow.python.keras.utils.data_utils import iter_sequence_infinite
-
-from ku.metrics_ext import MeanIoUExt
-from ku.loss_ext import CategoricalCrossentropyWithLabelGT
 
 #os.environ["CUDA_DEVICE_ORDER"] = 'PCI_BUS_ID'
 #os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
@@ -101,24 +97,7 @@ class SemanticSegmentation(object):
         self.model_loading = self.conf['model_loading']
                 
         if self.model_loading:
-            opt = optimizers.Adam(lr=self.hps['lr']
-                                        , beta_1=self.hps['beta_1']
-                                        , beta_2=self.hps['beta_2']
-                                        , decay=self.hps['decay']) 
-            with CustomObjectScope({'CategoricalCrossentropyWithLabelGT':CategoricalCrossentropyWithLabelGT,
-                                    'MeanIoUExt': MeanIoUExt}): 
-                if self.conf['multi_gpu']:
-                    self.model = load_model(os.path.join(self.raw_data_path, self.MODEL_PATH))
-                    strategy = tf.distribute.MirroredStrategy()
-                    with strategy.scope:
-                        self.parallel_model.compile(optimizer=opt
-                                                    , loss=self.model.losses
-                                                    , metrics=self.model.metrics)
-                else:
-                    self.model = load_model(os.path.join(self.raw_data_path, self.MODEL_PATH))
-                    #self.model.compile(optimizer=opt, 
-                    #           , loss=CategoricalCrossentropyWithLabelGT(num_classes=self.nn_arch['num_classes'])
-                    #           , metrics=[MeanIoUExt(num_classes=NUM_CLASSES)]
+            raise Exception('Opa! Opção desativada pra evitar erro.')
         else:
             # Design the semantic segmentation model.
             # Load a base model.
@@ -166,9 +145,16 @@ class SemanticSegmentation(object):
                                         , beta_2=self.hps['beta_2']
                                         , decay=self.hps['decay'])
             
-            self.model.compile(optimizer=opt
-                               , loss=CategoricalCrossentropyWithLabelGT(num_classes=self.nn_arch['num_classes'])
-                               , metrics=[MeanIoUExt(num_classes=NUM_CLASSES)])
+            self.model.compile(
+                optimizer=opt,
+                loss='sparse_categorical_crossentropy',
+                metrics=[
+                    keras.metrics.Accuracy(name='accuracy'),
+                    keras.metrics.MeanIoU(num_classes=NUM_CLASSES, name='mIoU'),
+                    keras.metrics.Precision(name='precision'),
+                    keras.metrics.Recall(name='recall')
+                ]
+            )
             self.model._init_set_name('deeplabv3plus_mnv2')
             
             if self.conf['multi_gpu']:
@@ -475,13 +461,13 @@ class SemanticSegmentation(object):
                 else:
                     output_generator = valGen
             
-            c_miou = MeanIoUExt(num_classes=NUM_CLASSES)
+            c_miou = keras.metrics.MeanIoU(num_classes=NUM_CLASSES)
             pbar = tqdm(range(step))                                    
             for s_i in pbar: #?
                 images, labels = next(output_generator)
 
                 if self.conf['multi_gpu']:
-                    results = self.parallel_model.predict(images) #?
+                    raise Exception('Opa! Opção desativada pra evitar erro.')
                 else:
                     results = self.model.predict(images)
                                    
