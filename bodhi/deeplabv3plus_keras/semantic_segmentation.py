@@ -42,7 +42,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, Conv2D, Dropout
 from tensorflow.keras.layers import Concatenate, Lambda, Activation, AveragePooling2D, SeparableConv2D
-from tensorflow.keras.utils import multi_gpu_model
+from tensorflow.distribute.MirroredStrategy
 
 from tensorflow.keras import optimizers
 from tensorflow.keras.applications import MobileNetV2, Xception
@@ -109,11 +109,11 @@ class SemanticSegmentation(object):
                                     'MeanIoUExt': MeanIoUExt}): 
                 if self.conf['multi_gpu']:
                     self.model = load_model(os.path.join(self.raw_data_path, self.MODEL_PATH))
-                    
-                    self.parallel_model = multi_gpu_model(self.model, gpus=self.conf['num_gpus'])
-                    self.parallel_model.compile(optimizer=opt
-                                                , loss=self.model.losses
-                                                , metrics=self.model.metrics)
+                    strategy = tf.distribute.MirroredStrategy()
+                    with strategy.scope:
+                        self.parallel_model.compile(optimizer=opt
+                                                    , loss=self.model.losses
+                                                    , metrics=self.model.metrics)
                 else:
                     self.model = load_model(os.path.join(self.raw_data_path, self.MODEL_PATH))
                     #self.model.compile(optimizer=opt, 
@@ -172,10 +172,11 @@ class SemanticSegmentation(object):
             self.model._init_set_name('deeplabv3plus_mnv2')
             
             if self.conf['multi_gpu']:
-                self.parallel_model = multi_gpu_model(self.model, gpus=self.conf['num_gpus'])
-                self.parallel_model.compile(optimizer=opt
-                                            , loss=self.model.losses
-                                            , metrics=self.model.metrics)
+                strategy = tf.distribute.MirroredStrategy()
+                with strategy.scope:
+                    self.parallel_model.compile(optimizer=opt
+                                                , loss=self.model.losses
+                                                , metrics=self.model.metrics)
             
     def _make_encoder(self):
         """Make encoder."""
